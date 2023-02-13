@@ -32,13 +32,21 @@ def parseArguments():
                         type=str, 
                         default=os.path.dirname(os.path.realpath(__file__)))
     
-    #Maximum angle between light/heavy peak area pairs. If transitions y3+, y4+, and b4+ have peak areas [10, 20, 30] for the light precursor
-    #and [100, 200, 300] for the heavy precursor, then the angle is zero radians. 
+    #Omit any scans where the scan filter matches at least one of these regex expressions
+    #Example ['ITMS'] means that the scan 
     parser.add_argument("-sf", "--scan_filter_regex_list", 
                         help="list of regex that match scans to omit", 
                         nargs = "*",
                         type=str, 
                         default=['ITMS'])
+    
+    #The number of raw files to process in parallel. Uses 'multiprocessing' python module
+    parser.add_argument("-n", "--num_workers", 
+                        help="number of workers for parallel processing", 
+                        nargs = "*",
+                        type=str, 
+                        default=4) 
+
     # Print version
     parser.add_argument("--version", action="version", version='%(prog)s - Version 1.0')
 
@@ -55,9 +63,11 @@ time0 = time.time()
 args = parseArguments()
 out_path = './'
 #Print arguments 
-print("Raw Files Directory:", args.raw_dir)
-print("Thermo dlls Directory: ", args.thermo_dlls)
-print("Scan Filter Regex List: ", args.scan_filter_regex_list)
+def printArguments():
+    print("Raw Files Directory:", args.raw_dir)
+    print("Thermo dlls Directory: ", args.thermo_dlls)
+    print("Scan Filter Regex List: ", args.scan_filter_regex_list)
+    return 
 #print("apex percent: ", args.apex_percent)
 
 ############
@@ -72,8 +82,9 @@ print("Scan Filter Regex List: ", args.scan_filter_regex_list)
 #print(pythonnet.get_runtime_info())
 import clr
 #Paths to thermo dlls
-thermo_data_path = args.thermo_dlls + '/ThermoFisher.CommonCore.Data.dll'
-thermo_rawfilereader_path = args.thermo_dlls + '/ThermoFisher.CommonCore.RawFileReader.dll'
+from os.path import abspath
+thermo_data_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.Data.dll')
+thermo_rawfilereader_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.RawFileReader.dll')
 #Throw an exception if the dll's cannot be found and print the path
 #Otherwise, import the dll
 for path in [thermo_data_path, thermo_rawfilereader_path]:
@@ -286,11 +297,24 @@ from itertools import repeat
 #    args = zip(raw_file_paths, repeat(scan_filters), repeat(out_path))
 #    pool.starmap(convertRawFile, args)
     #pool.map(lambda p: (p, convertRawFile(p, scan_filters, out_path)), raw_file_paths)
+def main():
+    initial = time.time()
 
-initial = time.time()
-for raw_file_path in raw_file_paths:
-    convertRawFile(raw_file_path, scan_filters, out_path)
-print("Converted " + str(len(raw_file_paths)) + " raw files in " + str((time.time() - initial)/60) + " minutes")
+    printArguments()
+    #for raw_file_path in raw_file_paths:
+    #    convertRawFile(raw_file_path, scan_filters, out_path)
+    import multiprocessing as mp
+    with mp.Pool(12) as pool: 
+        args = zip(raw_file_paths, repeat(scan_filters), repeat(out_path))
+        pool.starmap(convertRawFile, args)
+    print("Memory in use (MB): ")
+    import psutil; print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
+
+    print("Converted " + str(len(raw_file_paths)) + " raw files in " + str((time.time() - initial)/60) + " minutes")
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
 # pandas
 #import psutil
 #############
@@ -298,8 +322,6 @@ print("Converted " + str(len(raw_file_paths)) + " raw files in " + str((time.tim
 #ON MAC OS, REMOVING "import psutil" CAUSES A SEGV ERROR IN 
 #THE MONO RUNTIME. PART OF THE ERROR MESSAGE IS PASTED BELOW. 
 #############
-print("Memory in use (MB): ")
-import psutil; print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
 #PART OF THE ERROR RECIEVED IF YOU REMOVE "import psutil"
 #####
 #=================================================================
@@ -309,7 +331,6 @@ import psutil; print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
 #a fatal error in the mono runtime or one of the native libraries 
 #used by your application.
 #####
-sys.exit()
 #import multiprocessing as mp
 #with mp.Pool(4) as pool: 
 #    dict(pool.map(lambda p: (p, convertRawFile(p, scan_filters, out_path)), raw_file_paths))

@@ -1,8 +1,21 @@
 #!/usr/local/bin/python3
 '''
  Example Usage:
- python3 parquet_from_thermo_raw.py ~/path/MA4358_FFPE_HPVpos_01_071522.raw ~/path_to_dlls/ ['ITMS','full ms'];
- 
+ python3 parquet_from_thermo_raw.py ~/path/MA4358_FFPE_HPVpos_01_071522.raw ~/path_to_dlls/ -sf ITMS cid 
+
+ Uses Thermo RawFileReader .NET Assemblies (NetStandard20 .dlls) found in https://github.com/thermofisherlsms/RawFileReader
+ to convert Thermo '.raw' files to Apache '.parquet files'. Features parallel processing. 
+
+At present there are at least 2 major limitations:
+
+    1) Will not centroid profile scans. Reading, convertine, and writing, profile mode scans (ITMS scans)
+    is slow and not efficient in terms of memory or disk space. 
+
+    2) Does not put info about pressure traces into the .parquet file. Only retrieves and writes
+    information from the first 'MS' device. 
+
+
+ To convert Thermo Raw files to. See "parseArguments()" for details on implementation
 '''
 
 ############
@@ -13,9 +26,11 @@ import sys
 import os 
 from os import listdir
 from os.path import isfile, join
+import time
 
 #dir_path = os.path.dirname(os.path.realpath(__file__))
 def parseArguments():
+    #In the future, need to make optional to provide reference to a single .json file with all the arguments 
     # Create argument parser
     parser = argparse.ArgumentParser()
 
@@ -34,18 +49,27 @@ def parseArguments():
     
     #Omit any scans where the scan filter matches at least one of these regex expressions
     #Example ['ITMS'] means that the scan 
+    #ITMS + p NSI t Full ms [300.0000-1100.0000]
+    #Would be skipped 
     parser.add_argument("-sf", "--scan_filter_regex_list", 
                         help="list of regex that match scans to omit", 
                         nargs = "*",
                         type=str, 
                         default=['ITMS'])
-    
+
     #The number of raw files to process in parallel. Uses 'multiprocessing' python module
-    parser.add_argument("-n", "--num_workers", 
-                        help="number of workers for parallel processing", 
-                        nargs = "*",
+    parser.add_argument("-o", "--parquet_out",
+                        help="path to folder in which to write parquet files", 
                         type=str, 
-                        default=4) 
+                        default=os.path.dirname(os.path.realpath(__file__)))
+
+    parser.add_argument("-n", "--num_workers",
+                        help="number of workers to use", 
+                        type=int, 
+                        default=4)
+
+
+    parser.add_argument
 
     # Print version
     parser.add_argument("--version", action="version", version='%(prog)s - Version 1.0')
@@ -55,36 +79,24 @@ def parseArguments():
 
     return args
 
-#Want to report the analysis time
-import time
-time0 = time.time()
-
-
 args = parseArguments()
-out_path = './'
 #Print arguments 
 def printArguments():
     print("Raw Files Directory:", args.raw_dir)
     print("Thermo dlls Directory: ", args.thermo_dlls)
     print("Scan Filter Regex List: ", args.scan_filter_regex_list)
+    print("Number of Workers: ", args.num_workers)
     return 
-#print("apex percent: ", args.apex_percent)
 
 ############
-#Import Dependencies
+#Import Thermo Dependencies
 ############
-
-#From pythonnet package. Needed to use ThermoFisher.CommonCore dll's
-#import pythonnet
-#from pythonnet import load
-#print(pythonnet.get_runtime_info())
-#load("coreclr")
-#print(pythonnet.get_runtime_info())
-import clr
+import clr #From pythonnet package
 #Paths to thermo dlls
 from os.path import abspath
 thermo_data_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.Data.dll')
 thermo_rawfilereader_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.RawFileReader.dll')
+
 #Throw an exception if the dll's cannot be found and print the path
 #Otherwise, import the dll
 for path in [thermo_data_path, thermo_rawfilereader_path]:
@@ -122,10 +134,20 @@ else:
 ############
 import re
 scan_filters = [re.compile(scanFilter) for scanFilter in args.scan_filter_regex_list]
+
+############
+#Make folder for parquet files
+############
+
+#Global variable for file output path
+parquet_out = abspath(args.parquet_out)
+if not os.path.exists(parquet_out):
+    os.makedirs(parquet_out)
+
+
 ############
 #Convert Raw Files
 ############
-import time
 import struct
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -137,6 +159,23 @@ import numpy as np
 #list of lists. That is, one mass list for each scan in the .raw file
 #Give a copy of scan table to each instance of "readRawFile"
 class Scans(object):
+    """
+    Scans object represents scans from a raw file
+
+    Attributes:
+        __Dict__        'dict': Representation of scans form a raw file. Has a key for each column. 
+                        Values are lists with an entry for each row(scan). 
+
+        __PaSchema__    'pyarrow.schema': A collection of fields that corresponds to self.__Dict__
+                        Used for writing parquet files
+
+        __PaTable__     'pyarrow.Table': Columnar representation of scans data from self.__Dict__
+
+    Methods:
+        addScan():      Appends one value to each field in self.__Dict__ according to supplied arguments       
+        __toPaTable__():Converts self.__Dict__ to a pyarrow.Table object self.__PaTable__ 
+        writeParquet:   Writes self.__PaTable__ to a parquet file
+    """
     def __init__(self):
         self.__Dict__ = {
                                 'fileName' : [],
@@ -177,33 +216,36 @@ class Scans(object):
         self.__PaTable__ = None
 
     def addScan(self, scan_stats, centroid_stream, file_name, ms_order, scan_number, precursor_MZ = None, precursor_Charge = None):
-        try:
-            self.__Dict__['fileName']  += [file_name]
-            self.__Dict__['basePeakMass']  += [scan_stats.BasePeakMass]
-            self.__Dict__['scanType']  += [scan_stats.ScanType]
-            self.__Dict__['basePeakIntensity']  += [scan_stats.BasePeakIntensity]
-            self.__Dict__['packetType']  += [scan_stats.PacketType]
-            self.__Dict__['scanNumber']  += [ scan_stats.StartTime]
-            self.__Dict__['retentionTime']  += [scan_stats.StartTime]
-            self.__Dict__['masses']  += [centroid_stream.Masses]
-            self.__Dict__['intensities']  += [centroid_stream.Intensities]
-            self.__Dict__['lowMass']  += [scan_stats.LowMass]
-            self.__Dict__['highMass']  += [scan_stats.HighMass]
-            self.__Dict__['TIC']  += [scan_stats.TIC]
-            self.__Dict__['FileID']  += [file_name]
-            self.__Dict__['precursorMZ']  += [precursor_MZ]
-            self.__Dict__['precursorCharge']  += [precursor_Charge]
-            self.__Dict__['msOrder']  += [ms_order]
-        except:
-            print("scan number ", str(scan_number))
+        self.__Dict__['fileName']  += [file_name]
+        self.__Dict__['basePeakMass']  += [scan_stats.BasePeakMass]
+        self.__Dict__['scanType']  += [scan_stats.ScanType]
+        self.__Dict__['basePeakIntensity']  += [scan_stats.BasePeakIntensity]
+        self.__Dict__['packetType']  += [scan_stats.PacketType]
+        self.__Dict__['scanNumber']  += [ scan_stats.StartTime]
+        self.__Dict__['retentionTime']  += [scan_stats.StartTime]
+        self.__Dict__['masses']  += [centroid_stream.Masses]
+        self.__Dict__['intensities']  += [centroid_stream.Intensities]
+        self.__Dict__['lowMass']  += [scan_stats.LowMass]
+        self.__Dict__['highMass']  += [scan_stats.HighMass]
+        self.__Dict__['TIC']  += [scan_stats.TIC]
+        self.__Dict__['FileID']  += [file_name]
+        self.__Dict__['precursorMZ']  += [precursor_MZ]
+        self.__Dict__['precursorCharge']  += [precursor_Charge]
+        self.__Dict__['msOrder']  += [ms_order]
         return self
     
     def __toPaTable__(self, f_out):
-        self.__PaTable__ = pa.Table.from_pydict(self.__Dict__, schema = self.__PaSchema__)
+        try:
+            self.__PaTable__ = pa.Table.from_pydict(self.__Dict__, schema = self.__PaSchema__)
+        except:
+            print("Conversion of self.__Dict__ to pyarrow.Table failed!")
         return self 
 
     def writeParquet(self, f_out):
-        self.__toPaTable__(f_out)
+
+        if self.__PaTable__ is None:
+            self.__toPaTable__(f_out)
+
         pq.write_table(self.__PaTable__, 
                        where = f_out, #File name out
                        compression = 'SNAPPY' 
@@ -212,9 +254,20 @@ class Scans(object):
 
 def filterScan(scan_event_string, scan_filters):
     '''
-    Test if the scan filter string matches any of the 
-    "scan_filters". These are regular expressions
-    If there is a match, the scan will be skipped. 
+    Assumptions:
+        scan_event_string       str: A string describing the scan event. From GetScanEventStringForScanNumber()
+                                method on ThermoFisher.CommonCore.Data.Interfaces.IRawDataExtended object
+                                Examples: 
+                                            "FTMS + p NSI Full ms [300.0000-1100.0000]"
+                                            "FTMS + p NSI Full ms2 710.4059@hcd32.00 [150.0000-1700.0000]"
+                                            "ITMS + p NSI t Full ms [300.0000-1100.0000]"
+
+        scan_filters            list() of re.Pattern: List of re.Pattern objects. 
+
+    Guarantees:
+        Searches the 'scan_event_string' for matches to one or more of the scan_filters (re.Pattern objects). 
+    Returns True if there is at least one match to at least one scan filter
+    Returns false otherwise
     Could alternatively use "ThermoFisher.CommonCore.Data.FilterEnums"
     '''
     for scan_filter in scan_filters:
@@ -223,9 +276,27 @@ def filterScan(scan_event_string, scan_filters):
     return False
 
 def GetCentroidedScan(rawFile, scan_filter, scan_number):
+    '''
+    Assumptions:
+        rawFile                 'ThermoFisher.CommonCore.Data.Interfaces.IRawDataExtended':
+                                A handle on a thermo raw file. 
 
+        scan_filter             ThermoFisher.CommonCore.Data.Interfaces.IScanFilter:
+                                Scan filter for the given scan number
+
+        scan_number             int: Integer refereing to the scan number to get.              
+        
+    Guarantees:
+        Gets and returns a centroid_stream for the given scan number from the rawFile.
+        Returns a 'ThermoFisher.CommonCore.Data.Business.CentroidStream' object. 
+        In the future will centroid profile mode scans. 
+    '''
     centroid_stream = rawFile.GetCentroidStream(scan_number, False)
 
+    #At present, very slow for ITMS (linar ion trap) scans because they are not centroided
+    #by default. Ineficient in terms of memory, disk, space, and file-conversion time
+    #Need a method that can quickly centroid scans profile data, perhaps using numpy
+    #This block of code is avoided by passing 'ITMS' as a -sf argument. 
     if scan_filter.MassAnalyzer ==MassAnalyzerType.MassAnalyzerITMS:
         scan_data = rawFile.GetSimplifiedScan(scan_number)
         centroid_stream.Masses = np.array(scan_data.Masses)
@@ -237,6 +308,22 @@ def GetCentroidedScan(rawFile, scan_filter, scan_number):
 from tqdm import tqdm
 
 def convertRawFile(raw_file_path, scan_filters, out_path):
+    '''
+    Assumptions:
+        raw_file_paths          str: path to a Thermo '.raw' file
+
+        scan_filters            list() of re.Pattern: regular expressions
+                                used to filter match unwanted scans
+                                that will not be processed
+
+        out_path                str: path to folder where .parquet files
+                                will be written
+
+    Guarantees:
+        Converts the a '.raw' file 'raw_file_path' to an Apache '.parquet' file in the 'out_path'
+    but skips scans that match one or more of the 'scan_filters'.
+    '''
+    #Parse the file name out of the file path and remove the '.raw'
     f_out = raw_file_path.split('/')[-1].split('.')[0]
     print("Processing raw file: ", f_out)
     print("Reading Scans...")
@@ -246,18 +333,18 @@ def convertRawFile(raw_file_path, scan_filters, out_path):
     #Import the raw file and select instrument
     rawFile = RawFileReaderAdapter.FileFactory(raw_file_path)
     rawFile.SelectInstrument(Device.MS, 1)
+
     #Get the firt and last scan indices
     first_scan_number = rawFile.RunHeaderEx.FirstSpectrum
     last_scan_number = rawFile.RunHeaderEx.LastSpectrum
 
-    #for scan_number in range(45000, last_scan_number): no error
+    #Loop through all scans in the rawFile and read each that passes the scan_filters
+    #Into a "Scans" object. 
     for scan_number in tqdm(range(first_scan_number, last_scan_number)): 
-        #print(scan_number)
-    #for scan_number in range(37500, 45000): no error
-    #for scan_number in range(30000, 37500): error
+
         scan_filter = rawFile.GetFilterForScanNumber(scan_number)
         scan_stats = rawFile.GetScanStatsForScanNumber(scan_number)
-                #If scan matches one of the filters, skip it
+        #If scan matches one of the filters, skip it
         if filterScan(rawFile.GetScanEventStringForScanNumber(scan_number), scan_filters):
             continue
         
@@ -274,63 +361,65 @@ def convertRawFile(raw_file_path, scan_filters, out_path):
             if trailer_labels.Labels[i] == "Charge State:":
                 charge_state = rawFile.GetTrailerExtraValue(scan_number, i)
                 break
+        try:
+            if msOrder == MSOrderType.Ms:
+                scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
+                              None, charge_state)
+            else:
+                scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
+                              rawFile.GetScanEventForScanNumber(scan_number).GetReaction(0).PrecursorMass,
+                              charge_state)
+        except:
+            print("Could not add scan # " + str(scan_number))
 
-        if msOrder == MSOrderType.Ms:
-            scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
-                          None, charge_state)
-        else:
-            scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
-                          rawFile.GetScanEventForScanNumber(scan_number).GetReaction(0).PrecursorMass,
-                          charge_state)
-    print(join(out_path, f_out)+'.parquet')
     print("Writing scans to parquet for ", f_out, " ...")
+
+    #Time converting "Scans" object to pyarrow.Table and writing to a .parquet file
     t0 = time.time()
     scans.writeParquet(join(out_path, f_out)+'.parquet')
     print("Writing raw file ", f_out, " took ", str(time.time()-t0) , " seconds")
+
+    #Dispose of rawFile and clear memory
     rawFile.Dispose()
     del scans #still error
     gc.collect()
     return 
 
-from itertools import repeat
-#with mp.Pool(4) as pool: 
-#    args = zip(raw_file_paths, repeat(scan_filters), repeat(out_path))
-#    pool.starmap(convertRawFile, args)
-    #pool.map(lambda p: (p, convertRawFile(p, scan_filters, out_path)), raw_file_paths)
 def main():
+
+    #Time for converting all files
     initial = time.time()
 
     printArguments()
-    #for raw_file_path in raw_file_paths:
-    #    convertRawFile(raw_file_path, scan_filters, out_path)
+
+    #Convert raw files in parallel
+    from itertools import repeat
     import multiprocessing as mp
-    with mp.Pool(12) as pool: 
-        args = zip(raw_file_paths, repeat(scan_filters), repeat(out_path))
-        pool.starmap(convertRawFile, args)
+    with mp.Pool(args.num_workers) as pool: 
+        arguments = zip(raw_file_paths, repeat(scan_filters), repeat(parquet_out))
+        pool.starmap(convertRawFile, arguments)
+
+    #Time for converting all files
+    print("Converted " + str(len(raw_file_paths)) + " raw files in " + str((time.time() - initial)/60) + " minutes")
+
     print("Memory in use (MB): ")
+    #############
+    #WARNING! DO NOT REMOVE THE FOLLOWING LINE OF CODE!
+    #ON MAC OS, REMOVING "import psutil" CAUSES A SEGV ERROR IN 
+    #THE MONO RUNTIME. PART OF THE ERROR MESSAGE IS PASTED BELOW. 
+    #############
+    #PART OF THE ERROR RECIEVED IF YOU REMOVE "import psutil"
+    #####
+    #=================================================================
+    #        Native Crash Reporting
+    #=================================================================
+    #Got a segv while executing native code. This usually indicates
+    #a fatal error in the mono runtime or one of the native libraries 
+    #used by your application.
+    #####
     import psutil; print(psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2)
 
-    print("Converted " + str(len(raw_file_paths)) + " raw files in " + str((time.time() - initial)/60) + " minutes")
     return 0
 
 if __name__ == '__main__':
     sys.exit(main())
-# pandas
-#import psutil
-#############
-#WARNING! DO NOT REMOVE THE FOLLOWING LINE OF CODE!
-#ON MAC OS, REMOVING "import psutil" CAUSES A SEGV ERROR IN 
-#THE MONO RUNTIME. PART OF THE ERROR MESSAGE IS PASTED BELOW. 
-#############
-#PART OF THE ERROR RECIEVED IF YOU REMOVE "import psutil"
-#####
-#=================================================================
-#        Native Crash Reporting
-#=================================================================
-#Got a segv while executing native code. This usually indicates
-#a fatal error in the mono runtime or one of the native libraries 
-#used by your application.
-#####
-#import multiprocessing as mp
-#with mp.Pool(4) as pool: 
-#    dict(pool.map(lambda p: (p, convertRawFile(p, scan_filters, out_path)), raw_file_paths))

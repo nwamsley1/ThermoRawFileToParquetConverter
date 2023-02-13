@@ -2,6 +2,7 @@
 '''
  Example Usage:
  python3 parquet_from_thermo_raw.py ~/path/MA4358_FFPE_HPVpos_01_071522.raw ~/path_to_dlls/ -sf ITMS cid 
+ python3 raw_to_parquet.py args.json
 
  Uses Thermo RawFileReader .NET Assemblies (NetStandard20 .dlls) found in https://github.com/thermofisherlsms/RawFileReader
  to convert Thermo '.raw' files to Apache '.parquet files'. Features parallel processing. 
@@ -15,7 +16,8 @@ At present there are at least 2 major limitations:
     information from the first 'MS' device. 
 
 
- To convert Thermo Raw files to. See "parseArguments()" for details on implementation
+
+To convert Thermo Raw files to. See "parseArguments()" for details on implementation
 '''
 
 ############
@@ -79,14 +81,48 @@ def parseArguments():
 
     return args
 
+
+
+
+#Two opsions
+import json 
 args = parseArguments()
+if args.raw_dir.split('.')[-1] == "json":
+
+    json_args_f = open(args.raw_dir)
+    json_args = json.load(json_args_f)
+
+    try:
+        args.raw_dir = json_args['raw_dir']
+        args.thermo_dlls = json_args['thermo_dlls']
+        args.scan_filter_regex_list = json_args['scan_filter_regex_list']
+        args.num_workers = json_args['num_workers']
+        args.parquet_out= json_args['parquet_out']
+    except:
+        print("Could not convert json_args to properly formated arguments")
+else:
+    #If json was not provided as input, make a json file of the arguments. 
+    #Could simply provide a path to this file in the future as the sole argument
+    #To replicate the conversion
+    with open('args.json', 'w') as outfile:
+        json_args = {
+                 'raw_dir': args.raw_dir,
+                 'thermo_dlls': args.thermo_dlls,
+                 'scan_filter_regex_list': args.scan_filter_regex_list,
+                 'num_workers': args.num_workers,
+                 'parquet_out': args.parquet_out            
+                }
+        json.dump(json_args, outfile)
+
 #Print arguments 
 def printArguments():
     print("Raw Files Directory:", args.raw_dir)
     print("Thermo dlls Directory: ", args.thermo_dlls)
     print("Scan Filter Regex List: ", args.scan_filter_regex_list)
     print("Number of Workers: ", args.num_workers)
+    print("Parquet File Output Folder: ", args.parquet_out)
     return 
+
 
 ############
 #Import Thermo Dependencies

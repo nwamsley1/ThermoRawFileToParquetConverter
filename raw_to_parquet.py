@@ -187,6 +187,8 @@ if not os.path.exists(parquet_out):
 import struct
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pyarrow.csv as csv
+import pyarrow.dataset as dataset
 import gc
 import numpy as np
 
@@ -282,10 +284,21 @@ class Scans(object):
         if self.__PaTable__ is None:
             self.__toPaTable__(f_out)
 
-        pq.write_table(self.__PaTable__, 
-                       where = f_out, #File name out
-                       compression = 'SNAPPY' 
-                       )
+        #pq.write_table(self.__PaTable__, 
+        #               where = f_out, #File name out
+        #               compression = 'SNAPPY' 
+        #               )
+        from pyarrow import fs
+        local = fs.LocalFileSystem()
+        with local.open_output_stream(f_out) as file:
+            with pa.RecordBatchFileWriter(file, self.__PaTable__.schema) as writer:
+                writer.write_table(self.__PaTable__)
+        #dataset.write_dataset(data = self.__PaTable__, 
+        #       base_dir = '/Users/n.t.wamsley/Projects/RawToParquetPython/ThermoRawFileToParquetConverter/parquet_out/',#f_out,#, #File name out,
+        #       format = "arrow",
+        #       use_threads = True
+        #       #compression = 'SNAPPY' 
+        #       )
         return
 
 def filterScan(scan_event_string, scan_filters):
@@ -412,7 +425,9 @@ def convertRawFile(raw_file_path, scan_filters, out_path):
 
     #Time converting "Scans" object to pyarrow.Table and writing to a .parquet file
     t0 = time.time()
-    scans.writeParquet(join(out_path, f_out)+'.parquet')
+    scans.writeParquet(join(out_path, f_out)+
+        #'.parquet'
+        '.arrow')
     print("Writing raw file ", f_out, " took ", str(time.time()-t0) , " seconds")
 
     #Dispose of rawFile and clear memory

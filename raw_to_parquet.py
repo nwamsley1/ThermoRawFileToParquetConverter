@@ -259,7 +259,7 @@ class Scans(object):
         self.__Dict__['scanType']  += [scan_stats.ScanType]
         self.__Dict__['basePeakIntensity']  += [scan_stats.BasePeakIntensity]
         self.__Dict__['packetType']  += [scan_stats.PacketType]
-        self.__Dict__['scanNumber']  += [ scan_stats.StartTime]
+        self.__Dict__['scanNumber']  += [scan_number]
         self.__Dict__['retentionTime']  += [scan_stats.StartTime]
         self.__Dict__['masses']  += [centroid_stream.Masses]
         self.__Dict__['intensities']  += [centroid_stream.Intensities]

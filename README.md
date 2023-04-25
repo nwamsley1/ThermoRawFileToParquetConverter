@@ -1,6 +1,6 @@
 # ThermoRawFileToParquetConverter
 
-### Cross platform conversion of thermo raw files to the parquet file format using pythonnet
+### Cross platform conversion of Thermo raw files to the parquet file format using pythonnet
 
  Uses Thermo RawFileReader .NET Assemblies (NetStandard20 .dlls) found in https://github.com/thermofisherlsms/RawFileReader
  to convert Thermo '.raw' files to Apache '.parquet files'. Features parallel processing. Given a directory containing Thermo *.raw files, converts each to

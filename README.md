@@ -4,7 +4,7 @@
 
  Uses Thermo RawFileReader .NET Assemblies (NetStandard20 .dlls) found in https://github.com/thermofisherlsms/RawFileReader
  to convert Thermo '.raw' files to Apache '.parquet files'. Features parallel processing. Given a directory containing Thermo *.raw files, converts each to
- a .arrow or .parquet format in a specified output folder. Multi-threading is supported to convert many files in parallel. Typical conversion times are 1-2 minutes per *.raw file. 
+ a .arrow or .parquet format in a specified output folder. Multi-threading is supported to convert many files in parallel. Typical conversion times are 1-2 minutes per *.raw file on a single thread. 
  
  The output files have the following fields with one entry per scan in the *.raw file. 
  |Name                |Type                |Description                    |

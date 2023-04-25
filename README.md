@@ -26,7 +26,7 @@
  |precursorCharge     |Int32|Precursor charge
  |msOrder             |Int32|As in MS1, MS2, or MSN scan. Is "2" for an MS2 scan. 
 
- # Usage and Examples
+ # Usage
  
  ## Convert *.raw files using command line options
 

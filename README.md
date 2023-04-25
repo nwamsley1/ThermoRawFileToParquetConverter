@@ -4,7 +4,7 @@
 
  Uses Thermo RawFileReader .NET Assemblies (NetStandard20 .dlls) found in https://github.com/thermofisherlsms/RawFileReader
  to convert Thermo '.raw' files to Apache '.parquet files'. Features parallel processing. Given a directory containing Thermo *.raw files, converts each to
- a .arrow or .parquet format in a specified output folder. Multi-threading is supported to convert many files in parallel. Typical conversion times are 1-2 minutes per *.raw file on a single thread. 
+ a .arrow or .parquet format in a specified output folder. Multi-threading is supported to convert many files in parallel. Typical conversion times are 1-2 minutes per *.raw file on a single thread. Currently configured for conversion on Mac and linux. Need to run pip install pythonnet and have Mono runtime. 
  
  The output files have the following fields with one entry per scan in the *.raw file. 
  |Name                |Type                |Description                    |
@@ -91,3 +91,4 @@ Arrow Format
             with pa.RecordBatchFileWriter(file, self.__PaTable__.schema) as writer:
                 writer.write_table(self.__PaTable__)
  ```
+4) Needs to be tested on Windows. The only errors at present should have to do with file path compatability. Should be possible to fix this without too much trouble. 

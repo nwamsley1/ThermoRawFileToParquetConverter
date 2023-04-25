@@ -28,6 +28,41 @@
 
  # Usage and Examples
  
+ ## Convert *.raw files using command line options
+
+1) <b>-d</b> flag sets directory to search for Thermo RawFileReader dll's
+2) <b>-n</b> flag specifies the number of threads to use
+3) <b>-sf</b> list of terms to search for in each scan header/filter. Scans that contain these words are ommited
+4) <b>-o</b> path to folder where the converted files will be saved
+
+```
+!python3 raw_to_parquet.py ../raw -d ../libs -n 12 -sf ITMS kazoo -o ./parquet_out
+```
+
+This command converts all raw files in the "../raw" folder to a .arrow format, but excludes scans with "ITMS" or "kazoo" in the scan filter. An example scan filter is:  "ITMS + p NSI t Full ms [300.0000-1100.0000]". The new files are saved into the "./parquet_out" folder. In the current directory, an "args.json" file is also generated. 
+
+```
+import json
+json_args_f = open('args.json')
+json_args = json.load(json_args_f)
+display(json_args)
+{'raw_dir': '../raw',
+ 'thermo_dlls': '../libs',
+ 'scan_filter_regex_list': ['ITMS', 'kazoo'],
+ 'num_workers': 12,
+ 'parquet_out': './parquet_out'}
+```
+
+## Convert *.raw files using .json arguments
+In the previous example running the raw file converter using command line options generated a "args.json"
+file specifying the options. Rather than supplying options through flags in the command line, a simple .json
+file can be specified as follows
+
+```
+!python3 raw_to_parquet.py args.json
+```
+
+
  # Notes/Future Work
  At present there are at least two major limitations
  

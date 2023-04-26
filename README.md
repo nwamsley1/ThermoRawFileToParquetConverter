@@ -73,7 +73,7 @@ python3 raw_to_parquet.py args.json
  2) Does not put info about pressure traces into the .parquet file. Only retrieves and writes
     information from the first 'MS' device. This functionality is enabled by the Thermo RawFileReader but may not be possible to implement via pythonnet. 
     
- 3) Currently files are converted to ".arrow". It is possible to convert to .csv or .parquet as well. See below. The desired output format should be specifiable as a command line argument. 
+ 3) Currently files are converted to ".arrow". It is possible to convert to .csv or .parquet as well. See below. The desired output format should be specifiable as a command line argument in a future version.
  
  
  Parquet format

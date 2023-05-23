@@ -131,8 +131,8 @@ import clr #From pythonnet package
 #Paths to thermo dlls
 import os
 from os.path import abspath
-thermo_data_path = abspath(path.join(args.thermo_dlls, 'ThermoFisher.CommonCore.Data.dll'))
-thermo_rawfilereader_path = abspath(path.join(args.thermo_dlls,  'ThermoFisher.CommonCore.RawFileReader.dll'))
+thermo_data_path = abspath(os.path.join(args.thermo_dlls, 'ThermoFisher.CommonCore.Data.dll'))
+thermo_rawfilereader_path = abspath(os.path.join(args.thermo_dlls,  'ThermoFisher.CommonCore.RawFileReader.dll'))
 
 #Throw an exception if the dll's cannot be found and print the path
 #Otherwise, import the dll
@@ -377,8 +377,7 @@ def convertRawFile(raw_file_path, scan_filters, out_path):
     '''
     #Parse the file name out of the file path and remove the '.raw'
     #f_out = raw_file_path.split('/')[-1].split('.')[0]
-    from os import path
-    f_out = path.split(raw_file_path)[-1].split('.')[0]
+    f_out = os.path.split(raw_file_path)[-1].split('.')[0]
     print("Processing raw file: ", f_out)
     print("Reading Scans...")
     #Instance of Scans class

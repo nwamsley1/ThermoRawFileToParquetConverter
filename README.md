@@ -40,6 +40,7 @@ pip install pythonnet
 pip install tqdm
 pip install pyarrow
 pip install psutil
+```
 ###### POSIX
 ```
 python3 raw_to_parquet.py ../raw -d ./libs -n 12 -sf ITMS kazoo -o ./parquet_out

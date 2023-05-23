@@ -36,7 +36,7 @@
 4) <b>-o</b> path to folder where the converted files will be saved
 
 ```
-python3 raw_to_parquet.py ../raw -d ../libs -n 12 -sf ITMS kazoo -o ./parquet_out
+python3 raw_to_parquet.py ../raw -d ./libs -n 12 -sf ITMS kazoo -o ./parquet_out
 ```
 
 This command converts all raw files in the "../raw" folder to a .arrow format, but excludes scans with "ITMS" or "kazoo" in the scan filter. An example scan filter is:  "ITMS + p NSI t Full ms [300.0000-1100.0000]". The new files are saved into the "./parquet_out" folder. In the current directory, an "args.json" file is also generated. 

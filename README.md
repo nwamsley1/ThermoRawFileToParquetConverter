@@ -36,7 +36,21 @@
 4) <b>-o</b> path to folder where the converted files will be saved
 
 ```
+pip install pythonnet
+pip install tqdm
+pip install pyarrow
+pip install psutil
+###### POSIX
+```
 python3 raw_to_parquet.py ../raw -d ./libs -n 12 -sf ITMS kazoo -o ./parquet_out
+```
+###### WINDOWS
+```
+python .\raw_to_parquet.py ..\raw -d .\libs\ -n 12 -sf ITMS -o .\parquet_out
+```
+Note: For windows, downloading the repository as a .zip file will cause execution of the .dll files to be blocked. Instead, clone the repository as follows
+```
+git clone https://github.com/nwamsley1/ThermoRawFileToParquetConverter.git
 ```
 
 This command converts all raw files in the "../raw" folder to a .arrow format, but excludes scans with "ITMS" or "kazoo" in the scan filter. An example scan filter is:  "ITMS + p NSI t Full ms [300.0000-1100.0000]". The new files are saved into the "./parquet_out" folder. In the current directory, an "args.json" file is also generated. 

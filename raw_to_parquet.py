@@ -129,9 +129,10 @@ def printArguments():
 ############
 import clr #From pythonnet package
 #Paths to thermo dlls
+import os
 from os.path import abspath
-thermo_data_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.Data.dll')
-thermo_rawfilereader_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.RawFileReader.dll')
+thermo_data_path = abspath(os.path.join(args.thermo_dlls, 'ThermoFisher.CommonCore.Data.dll'))
+thermo_rawfilereader_path = abspath(os.path.join(args.thermo_dlls,  'ThermoFisher.CommonCore.RawFileReader.dll'))
 
 #Throw an exception if the dll's cannot be found and print the path
 #Otherwise, import the dll
@@ -139,6 +140,8 @@ for path in [thermo_data_path, thermo_rawfilereader_path]:
     if not os.path.isfile(path):
         raise Exception("The file: " + path + " does not exist!")
     else:
+        print("PATH")
+        print(path)
         clr.AddReference(path)
 
 #Import required functions from the Thermo Dlls
@@ -373,7 +376,8 @@ def convertRawFile(raw_file_path, scan_filters, out_path):
     but skips scans that match one or more of the 'scan_filters'.
     '''
     #Parse the file name out of the file path and remove the '.raw'
-    f_out = raw_file_path.split('/')[-1].split('.')[0]
+    #f_out = raw_file_path.split('/')[-1].split('.')[0]
+    f_out = os.path.split(raw_file_path)[-1].split('.')[0]
     print("Processing raw file: ", f_out)
     print("Reading Scans...")
     #Instance of Scans class

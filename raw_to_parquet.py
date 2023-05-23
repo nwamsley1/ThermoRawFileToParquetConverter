@@ -131,14 +131,13 @@ import clr #From pythonnet package
 #Paths to thermo dlls
 import os
 from os.path import abspath
-from os import path
 thermo_data_path = abspath(path.join(args.thermo_dlls, 'ThermoFisher.CommonCore.Data.dll'))
 thermo_rawfilereader_path = abspath(path.join(args.thermo_dlls,  'ThermoFisher.CommonCore.RawFileReader.dll'))
 
 #Throw an exception if the dll's cannot be found and print the path
 #Otherwise, import the dll
 for path in [thermo_data_path, thermo_rawfilereader_path]:
-    if not path.isfile(path):
+    if not os.path.isfile(path):
         raise Exception("The file: " + path + " does not exist!")
     else:
         print("PATH")

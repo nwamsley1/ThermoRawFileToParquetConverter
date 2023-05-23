@@ -129,8 +129,9 @@ def printArguments():
 ############
 import clr #From pythonnet package
 #Paths to thermo dlls
+import os
 from os.path import abspath
-thermo_data_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.Data.dll')
+thermo_data_path = abspath(os.path.join(args.thermo_dlls, '/ThermoFisher.CommonCore.Data.dll'))
 thermo_rawfilereader_path = abspath(args.thermo_dlls + '/ThermoFisher.CommonCore.RawFileReader.dll')
 
 #Throw an exception if the dll's cannot be found and print the path

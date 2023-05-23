@@ -35,6 +35,7 @@
 3) <b>-sf</b> list of terms to search for in each scan header/filter. Scans that contain these words are ommited
 4) <b>-o</b> path to folder where the converted files will be saved
 
+###### Install Dependencies
 ```
 pip install pythonnet
 pip install tqdm

@@ -29,6 +29,7 @@ import os
 from os import listdir
 from os.path import isfile, join
 import time
+from collections import defaultdict
 
 #dir_path = os.path.dirname(os.path.realpath(__file__))
 def parseArguments():
@@ -69,6 +70,10 @@ def parseArguments():
                         help="number of workers to use", 
                         type=int, 
                         default=4)
+    parser.add_argument("-sh", "--scan-header-used",
+                        help="whether to use scan header for the output",
+                        type = bool,
+                        default = False)
 
 
     parser.add_argument
@@ -98,6 +103,7 @@ if args.raw_dir.split('.')[-1] == "json":
         args.scan_filter_regex_list = json_args['scan_filter_regex_list']
         args.num_workers = json_args['num_workers']
         args.parquet_out= json_args['parquet_out']
+        args.scan_header_used = json_args['scan_header_used']
     except:
         print("Could not convert json_args to properly formated arguments")
 else:
@@ -110,7 +116,8 @@ else:
                  'thermo_dlls': args.thermo_dlls,
                  'scan_filter_regex_list': args.scan_filter_regex_list,
                  'num_workers': args.num_workers,
-                 'parquet_out': args.parquet_out            
+                 'parquet_out': args.parquet_out,
+                 'scan_header_used': args.scan_header_used           
                 }
         json.dump(json_args, outfile)
 
@@ -119,6 +126,7 @@ def printArguments():
     print("Raw Files Directory:", args.raw_dir)
     print("Thermo dlls Directory: ", args.thermo_dlls)
     print("Scan Filter Regex List: ", args.scan_filter_regex_list)
+    print("Scan Header Used: ", args.scan_header_used)
     print("Number of Workers: ", args.num_workers)
     print("Parquet File Output Folder: ", args.parquet_out)
     return 
@@ -235,6 +243,7 @@ class Scans(object):
                                 'precursorMZ' : [],
                                 'precursorCharge' : [], 
                                 'msOrder': [],
+                                "scanHeader": [],
                             }
         self.__PaSchema__ = pa.schema([
                                         pa.field('fileName', pa.string()),
@@ -252,11 +261,12 @@ class Scans(object):
                                         pa.field('FileID', pa.string()),
                                         pa.field('precursorMZ', pa.float32()),
                                         pa.field('precursorCharge', pa.int32()),
-                                        pa.field('msOrder', pa.int32())
+                                        pa.field('msOrder', pa.int32()),
+                                        pa.field('scanHeader', pa.dictionary(pa.utf8(), pa.utf8()) )
                                     ])      
         self.__PaTable__ = None
 
-    def addScan(self, scan_stats, centroid_stream, file_name, ms_order, scan_number, precursor_MZ = None, precursor_Charge = None):
+    def addScan(self, scan_stats, centroid_stream, file_name, ms_order, scan_number, precursor_MZ = None, precursor_Charge = None, scan_header = None):
         self.__Dict__['fileName']  += [file_name]
         self.__Dict__['basePeakMass']  += [scan_stats.BasePeakMass]
         self.__Dict__['scanType']  += [scan_stats.ScanType]
@@ -273,6 +283,7 @@ class Scans(object):
         self.__Dict__['precursorMZ']  += [precursor_MZ]
         self.__Dict__['precursorCharge']  += [precursor_Charge]
         self.__Dict__['msOrder']  += [ms_order]
+        self.__Dict__['scanHeader'] += [scan_header]
         return self
     
     def __toPaTable__(self, f_out):
@@ -359,7 +370,7 @@ def GetCentroidedScan(rawFile, scan_filter, scan_number):
 
 from tqdm import tqdm
 
-def convertRawFile(raw_file_path, scan_filters, out_path):
+def convertRawFile(raw_file_path, scan_filters, out_path, scan_header_used):
     '''
     Assumptions:
         raw_file_paths          str: path to a Thermo '.raw' file
@@ -390,6 +401,19 @@ def convertRawFile(raw_file_path, scan_filters, out_path):
     #Get the firt and last scan indices
     first_scan_number = rawFile.RunHeaderEx.FirstSpectrum
     last_scan_number = rawFile.RunHeaderEx.LastSpectrum
+    index_to_header_key_map = defaultdict(str)
+    if(scan_header_used):
+        logEntry = rawFile.GetTrailerExtraHeaderInformation()
+        t = 0
+        for i in logEntry:
+            if t >0:
+                index_to_header_key_map[t] = i.Label
+            t +=1
+        scan_header = defaultdict(str)
+
+
+    else:
+        scan_header = None
 
     #Loop through all scans in the rawFile and read each that passes the scan_filters
     #Into a "Scans" object. 
@@ -414,14 +438,17 @@ def convertRawFile(raw_file_path, scan_filters, out_path):
             if trailer_labels.Labels[i] == "Charge State:":
                 charge_state = rawFile.GetTrailerExtraValue(scan_number, i)
                 break
+        if scan_header:
+            for i in index_to_header_key_map.keys():
+                scan_header[index_to_header_key_map[i]] = rawFile.GetTrailerExtraValue(scan_number, i)
         try:
             if msOrder == MSOrderType.Ms:
                 scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
-                              None, charge_state)
+                              None, charge_state, scan_header)
             else:
                 scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
                               rawFile.GetScanEventForScanNumber(scan_number).GetReaction(0).PrecursorMass,
-                              charge_state)
+                              charge_state, scan_header)
         except:
             print("Could not add scan # " + str(scan_number))
 

@@ -1,1 +1,1 @@
-{"raw_dir": "../raw", "thermo_dlls": "../libs", "scan_filter_regex_list": ["ITMS", "kazoo"], "num_workers": 12, "parquet_out": "./parquet_out"}
+{"raw_dir": "/Volumes/d.goldfarb/Active/RIS_Goldfarb_Lab/Anh/ms1_dw/batch2/Hela_iAPI_Segmentation_TwoThousandth4.raw", "thermo_dlls": "libs", "scan_filter_regex_list": ["ITMS"], "num_workers": 4, "parquet_out": "out/", "scan_header_used": false}

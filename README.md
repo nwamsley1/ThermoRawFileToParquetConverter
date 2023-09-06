@@ -25,6 +25,7 @@
  |precursorMZ         |Float32|Precursor MZ or the center of the isolation window for an MSN scan <br> If no precursor was assigned. Missing for an MS1 scan.
  |precursorCharge     |Int32|Precursor charge
  |msOrder             |Int32|As in MS1, MS2, or MSN scan. Is "2" for an MS2 scan. 
+ |scanHeader | MapArray{(utf8,utf8)} | Map Array of key-values of each scan header field for each scan.
 
  # Usage
  
@@ -34,13 +35,11 @@
 2) <b>-n</b> flag specifies the number of threads to use
 3) <b>-sf</b> list of terms to search for in each scan header/filter. Scans that contain these words are ommited
 4) <b>-o</b> path to folder where the converted files will be saved
+5) **-sh** optional flag specified whether to parse `scanHeader` for each scan. Default is `False`, or use `--no-scan-header`.
 
 ###### Install Dependencies
 ```
-pip install pythonnet
-pip install tqdm
-pip install pyarrow
-pip install psutil
+pip install -r requirements.txt
 ```
 ###### POSIX
 ```
@@ -66,7 +65,8 @@ display(json_args)
  'thermo_dlls': '../libs',
  'scan_filter_regex_list': ['ITMS', 'kazoo'],
  'num_workers': 12,
- 'parquet_out': './parquet_out'}
+ 'parquet_out': './parquet_out',
+ 'scan_header_used': true}
 ```
 
 ## Convert *.raw files using .json arguments

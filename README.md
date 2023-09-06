@@ -35,7 +35,7 @@
 2) <b>-n</b> flag specifies the number of threads to use
 3) <b>-sf</b> list of terms to search for in each scan header/filter. Scans that contain these words are ommited
 4) <b>-o</b> path to folder where the converted files will be saved
-5) **-sh** flag specified whether to parse `scanHeader` for each scan. Default is `False`
+5) **-sh** optional flag specified whether to parse `scanHeader` for each scan. Default is `False`, or use `--no-scan-header`.
 
 ###### Install Dependencies
 ```

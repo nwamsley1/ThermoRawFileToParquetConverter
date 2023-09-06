@@ -70,10 +70,10 @@ def parseArguments():
                         help="number of workers to use", 
                         type=int, 
                         default=4)
-    parser.add_argument("-sh", "--scan-header-used",
+    parser.add_argument("-sh", "--scan-header",
                         help="whether to use scan header for the output",
-                        type = bool,
-                        default = False)
+                        default = False,
+                        action=argparse.BooleanOptionalAction)
 
 
     parser.add_argument
@@ -127,8 +127,8 @@ def printArguments():
     print("Thermo dlls Directory: ", args.thermo_dlls)
     print("Scan Filter Regex List: ", args.scan_filter_regex_list)
     global SCAN_HEADER_USED
-    SCAN_HEADER_USED = args.scan_header_used
-    print("Scan Header Used: ", args.scan_header_used)
+    SCAN_HEADER_USED = args.scan_header
+    print("Scan Header Used: ", args.scan_header)
     print("Number of Workers: ", args.num_workers)
     print("Parquet File Output Folder: ", args.parquet_out)
     return 

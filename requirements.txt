@@ -1,0 +1,5 @@
+pythonnet==3.0.1
+tqdm==4.65.0
+pyarrow==12.0.1
+psutil==5.9.5
+numpy==1.24.4

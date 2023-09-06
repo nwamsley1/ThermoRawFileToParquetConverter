@@ -126,6 +126,8 @@ def printArguments():
     print("Raw Files Directory:", args.raw_dir)
     print("Thermo dlls Directory: ", args.thermo_dlls)
     print("Scan Filter Regex List: ", args.scan_filter_regex_list)
+    global SCAN_HEADER_USED
+    SCAN_HEADER_USED = args.scan_header_used
     print("Scan Header Used: ", args.scan_header_used)
     print("Number of Workers: ", args.num_workers)
     print("Parquet File Output Folder: ", args.parquet_out)
@@ -262,7 +264,7 @@ class Scans(object):
                                         pa.field('precursorMZ', pa.float32()),
                                         pa.field('precursorCharge', pa.int32()),
                                         pa.field('msOrder', pa.int32()),
-                                        pa.field('scanHeader', pa.dictionary(pa.utf8(), pa.utf8()) )
+                                        pa.field('scanHeader', pa.map_(pa.utf8(), pa.utf8()), nullable = True) # not a required field
                                     ])      
         self.__PaTable__ = None
 
@@ -283,7 +285,7 @@ class Scans(object):
         self.__Dict__['precursorMZ']  += [precursor_MZ]
         self.__Dict__['precursorCharge']  += [precursor_Charge]
         self.__Dict__['msOrder']  += [ms_order]
-        self.__Dict__['scanHeader'] += [scan_header]
+        self.__Dict__['scanHeader'].append(scan_header)
         return self
     
     def __toPaTable__(self, f_out):
@@ -295,7 +297,7 @@ class Scans(object):
 
     def writeParquet(self, f_out):
 
-        if self.__PaTable__ is None:
+        if not self.__PaTable__:
             self.__toPaTable__(f_out)
 
         #pq.write_table(self.__PaTable__, 
@@ -402,18 +404,16 @@ def convertRawFile(raw_file_path, scan_filters, out_path, scan_header_used):
     first_scan_number = rawFile.RunHeaderEx.FirstSpectrum
     last_scan_number = rawFile.RunHeaderEx.LastSpectrum
     index_to_header_key_map = defaultdict(str)
-    if(scan_header_used):
+
+    
+    if scan_header_used:
         logEntry = rawFile.GetTrailerExtraHeaderInformation()
         t = 0
         for i in logEntry:
             if t >0:
                 index_to_header_key_map[t] = i.Label
             t +=1
-        scan_header = defaultdict(str)
 
-
-    else:
-        scan_header = None
 
     #Loop through all scans in the rawFile and read each that passes the scan_filters
     #Into a "Scans" object. 
@@ -438,9 +438,14 @@ def convertRawFile(raw_file_path, scan_filters, out_path, scan_header_used):
             if trailer_labels.Labels[i] == "Charge State:":
                 charge_state = rawFile.GetTrailerExtraValue(scan_number, i)
                 break
-        if scan_header:
+        scan_header = []
+        if scan_header_used:
             for i in index_to_header_key_map.keys():
-                scan_header[index_to_header_key_map[i]] = rawFile.GetTrailerExtraValue(scan_number, i)
+                scan_header.append({'key': index_to_header_key_map[i].split(":")[0], 
+                                        'value': str(rawFile.GetTrailerExtraValue(scan_number, i)).strip()}) # TODO: Parse into correct datatype for each scan header. There are 40 of them
+        else:
+            scan_header = None
+
         try:
             if msOrder == MSOrderType.Ms:
                 scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
@@ -478,7 +483,7 @@ def main():
     from itertools import repeat
     import multiprocessing as mp
     with mp.Pool(args.num_workers) as pool: 
-        arguments = zip(raw_file_paths, repeat(scan_filters), repeat(parquet_out))
+        arguments = zip(raw_file_paths, repeat(scan_filters), repeat(parquet_out), repeat(SCAN_HEADER_USED))
         pool.starmap(convertRawFile, arguments)
 
     #Time for converting all files

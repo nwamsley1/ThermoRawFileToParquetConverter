@@ -103,7 +103,7 @@ if args.raw_dir.split('.')[-1] == "json":
         args.scan_filter_regex_list = json_args['scan_filter_regex_list']
         args.num_workers = json_args['num_workers']
         args.parquet_out= json_args['parquet_out']
-        args.scan_header_used = json_args['scan_header_used']
+        args.scan_header = json_args['scan_header_used']
     except:
         print("Could not convert json_args to properly formated arguments")
 else:
@@ -117,7 +117,7 @@ else:
                  'scan_filter_regex_list': args.scan_filter_regex_list,
                  'num_workers': args.num_workers,
                  'parquet_out': args.parquet_out,
-                 'scan_header_used': args.scan_header_used           
+                 'scan_header': args.scan_header           
                 }
         json.dump(json_args, outfile)
 

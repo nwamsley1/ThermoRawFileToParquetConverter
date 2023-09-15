@@ -482,7 +482,7 @@ def main():
     #Convert raw files in parallel
     from itertools import repeat
     import multiprocessing as mp
-    mp.set_start_method("fork") # Use spawn instead of fork cause MONO complains
+    mp.set_start_method("spawn") # Use spawn instead of fork cause MONO complains
     with mp.Pool(args.num_workers) as pool: 
         arguments = zip(raw_file_paths, repeat(scan_filters), repeat(parquet_out), repeat(SCAN_HEADER_USED))
         pool.starmap(convertRawFile, arguments)

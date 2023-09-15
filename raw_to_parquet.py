@@ -103,7 +103,7 @@ if args.raw_dir.split('.')[-1] == "json":
         args.scan_filter_regex_list = json_args['scan_filter_regex_list']
         args.num_workers = json_args['num_workers']
         args.parquet_out= json_args['parquet_out']
-        args.scan_header_used = json_args['scan_header_used']
+        args.scan_header = json_args['scan_header_used']
     except:
         print("Could not convert json_args to properly formated arguments")
 else:
@@ -117,7 +117,7 @@ else:
                  'scan_filter_regex_list': args.scan_filter_regex_list,
                  'num_workers': args.num_workers,
                  'parquet_out': args.parquet_out,
-                 'scan_header_used': args.scan_header_used           
+                 'scan_header_used': args.scan_header           
                 }
         json.dump(json_args, outfile)
 
@@ -482,17 +482,20 @@ def main():
     #Convert raw files in parallel
     from itertools import repeat
     import multiprocessing as mp
+    mp.set_start_method("spawn") # Use spawn instead of fork cause MONO complains
     with mp.Pool(args.num_workers) as pool: 
         arguments = zip(raw_file_paths, repeat(scan_filters), repeat(parquet_out), repeat(SCAN_HEADER_USED))
         pool.starmap(convertRawFile, arguments)
-
+    pool.join()
+    #convertRawFile("/storage1/fs1/d.goldfarb/Active/RIS_Goldfarb_Lab/Anh/ms1_dw/batch5/",
+    #"", "/out", True)
     #Time for converting all files
     print("Converted " + str(len(raw_file_paths)) + " raw files in " + str((time.time() - initial)/60) + " minutes")
 
     print("Memory in use (MB): ")
     #############
     #WARNING! DO NOT REMOVE THE FOLLOWING LINE OF CODE!
-    #ON MAC OS, REMOVING "import psutil" CAUSES A SEGV ERROR IN 
+    #ON MAC OS, REMOVING "import psutil" CAUSES #A SEGV ERROR IN 
     #THE MONO RUNTIME. PART OF THE ERROR MESSAGE IS PASTED BELOW. 
     #############
     #PART OF THE ERROR RECIEVED IF YOU REMOVE "import psutil"

@@ -107,4 +107,5 @@ Arrow Format
             with pa.RecordBatchFileWriter(file, self.__PaTable__.schema) as writer:
                 writer.write_table(self.__PaTable__)
  ```
-4) Needs to be tested on Windows. The only errors at present should have to do with file path compatability. Should be possible to fix this without too much trouble. 
+4) Needs to be tested on Windows. The only errors at present should have to do with file path compatability. Should be possible to fix this without too much trouble.
+5) Test on Linux (CentOS). It seems like there is problem with multithreading with mono runtime as of now Sept 2023. See https://github.com/mono/mono/issues/18356. So need to explicitly state `spawn` when parallelizing.

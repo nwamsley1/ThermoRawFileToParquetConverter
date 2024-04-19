@@ -242,7 +242,9 @@ class Scans(object):
                                 'highMass' : [],
                                 'TIC' : [],
                                 'FileID' : [],
-                                'precursorMZ' : [],
+                                'centerMass' : [],
+                                'isolationWidth' : [],
+                                'collisionEnergy' : [],
                                 'precursorCharge' : [], 
                                 'msOrder': [],
                                 "scanHeader": [],
@@ -261,14 +263,16 @@ class Scans(object):
                                         pa.field('highMass', pa.float32()),
                                         pa.field('TIC', pa.float32()),
                                         pa.field('FileID', pa.string()),
-                                        pa.field('precursorMZ', pa.float32()),
+                                        pa.field('centerMass', pa.float32()),
+                                        pa.field('isolationWidth', pa.float32()),
+                                         pa.field('collisionEnergy', pa.float32()),
                                         pa.field('precursorCharge', pa.int32()),
                                         pa.field('msOrder', pa.int32()),
                                         pa.field('scanHeader', pa.map_(pa.utf8(), pa.utf8()), nullable = True) # not a required field
                                     ])      
         self.__PaTable__ = None
 
-    def addScan(self, scan_stats, centroid_stream, file_name, ms_order, scan_number, precursor_MZ = None, precursor_Charge = None, scan_header = None):
+    def addScan(self, scan_stats, centroid_stream, file_name, ms_order, scan_number, center_mass = None, isolation_width = None, collision_energy = None, precursor_Charge = None, scan_header = None):
         self.__Dict__['fileName']  += [file_name]
         self.__Dict__['basePeakMass']  += [scan_stats.BasePeakMass]
         self.__Dict__['scanType']  += [scan_stats.ScanType]
@@ -282,7 +286,9 @@ class Scans(object):
         self.__Dict__['highMass']  += [scan_stats.HighMass]
         self.__Dict__['TIC']  += [scan_stats.TIC]
         self.__Dict__['FileID']  += [file_name]
-        self.__Dict__['precursorMZ']  += [precursor_MZ]
+        self.__Dict__['centerMass']  += [center_mass]
+        self.__Dict__['isolationWidth']  += [isolation_width]
+        self.__Dict__['collisionEnergy']  += [collision_energy]
         self.__Dict__['precursorCharge']  += [precursor_Charge]
         self.__Dict__['msOrder']  += [ms_order]
         self.__Dict__['scanHeader'].append(scan_header)
@@ -421,6 +427,7 @@ def convertRawFile(raw_file_path, scan_filters, out_path, scan_header_used):
 
         scan_filter = rawFile.GetFilterForScanNumber(scan_number)
         scan_stats = rawFile.GetScanStatsForScanNumber(scan_number)
+        scan_event = rawFile.GetScanEventForScanNumber(scan_number)
         #If scan matches one of the filters, skip it
         if filterScan(rawFile.GetScanEventStringForScanNumber(scan_number), scan_filters):
             continue
@@ -449,10 +456,12 @@ def convertRawFile(raw_file_path, scan_filters, out_path, scan_header_used):
         try:
             if msOrder == MSOrderType.Ms:
                 scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
-                              None, charge_state, scan_header)
+                              None, None, charge_state, scan_header)
             else:
                 scans.addScan(scan_stats, centroid_stream, raw_file_path, msOrder, scan_number,
-                              rawFile.GetScanEventForScanNumber(scan_number).GetReaction(0).PrecursorMass,
+                              scan_event.GetMass(0),
+                              scan_event.GetIsolationWidth(0) + scan_event.GetIsolationWidthOffset(0),
+                              scan_event.GetEnergy(0),
                               charge_state, scan_header)
         except:
             print("Could not add scan # " + str(scan_number))

@@ -1,1 +1,1 @@
-{"raw_dir": "/Users/n.t.wamsley/TEST_DATA/PXD046444", "thermo_dlls": "./libs", "scan_filter_regex_list": ["ITMS"], "num_workers": 6, "parquet_out": "/Users/n.t.wamsley/TEST_DATA/PXD046444/arrow", "scan_header_used": false}
+{"raw_dir": "/Users/n.t.wamsley/RIS_temp/MATRIX_MATCHED_CAL_CURVES/", "thermo_dlls": "./libs", "scan_filter_regex_list": ["ITMS"], "num_workers": 1, "parquet_out": "/Users/n.t.wamsley/RIS_temp/MATRIX_MATCHED_CAL_CURVES/", "scan_header_used": false}
